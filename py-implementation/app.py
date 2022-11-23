@@ -15,7 +15,7 @@ logging_level = os.environ.get('LOG_LEVEL', 'INFO')
 initial_status = 'initial'
 
 
-class GatewayPosition:
+class GatewayPositionWithState:
     def __init__(self, token, network):
         self.token = token
         self.network = network
@@ -30,8 +30,8 @@ class GatewayPosition:
 
 
 positions = [
-    GatewayPosition('USDT', 'BSC'),
-    GatewayPosition('USDT', 'ETH')
+    GatewayPositionWithState('USDT', 'BSC'),
+    GatewayPositionWithState('USDT', 'ETH')
 ]
 
 
@@ -58,35 +58,45 @@ if __name__ == '__main__':
                 logger.debug("Going to send a request to Waves Exchange")
 
                 request_url = withdraw_status_url_template.format(token=token, network=network)
-                gateway_response = requests.get(request_url).json()
+                gateway_response_raw = requests.get(request_url)
+                match gateway_response_raw.status_code:
+                    case 200:
+                        gateway_response = gateway_response_raw.json()
 
-                logger.debug("Got a response from Waves Exchange")
-                current_status = gateway_response['status']
+                        logger.debug("Got a response from Waves Exchange")
+                        current_status = gateway_response['status']
 
-                logger.debug("Found 'status' field")
-                if current_status != last_status:
-                    if last_status == initial_status:
-                        logger.debug("First run, just updating the status")
-                        p.update_status(current_status)
+                        logger.debug("Found 'status' field")
+                        if current_status != last_status:
+                            if last_status == initial_status:
+                                logger.debug("First run, just updating the status")
+                                p.update_status(current_status)
+                                continue
+
+                            logger.info("Status has changed! Old status: '{}', new status: '{}'"
+                                        .format(last_status, current_status))
+
+                            # status has changed, signal to telegram channel
+                            message = """
+                            {} gateway (Waves -> {}) status changed to: {}
+                            """.format(token, network, current_status)
+
+                            status = bot.send_message(chat_id=tg_channel_link, text=message)
+
+                            # change last saved status
+                            logger.debug("Updating status for {}".format(p))
+                            p.update_status(current_status)
+                            logger.debug("Status updated: {}".format(p))
+                        else:
+                            logger.debug("Status didn't change, old status: '{}'".format(last_status))
+
+                    case other_code:
+                        logger.error("Gateway responded with {}: {}".format(other_code, gateway_response_raw))
+                        # TODO: write me a private message about the problem
                         continue
 
-                    logger.info("Status has changed! Old status: '{}', new status: '{}'"
-                                .format(last_status, current_status))
-
-                    # status has changed, signal to telegram channel
-                    message = """
-                    {} gateway (Waves -> {}) status changed to: {}
-                    """.format(token, network, current_status)
-                    status = bot.send_message(chat_id=tg_channel_link, text=message)
-
-                    # change last saved status
-                    logger.debug("Updating status for {}".format(p))
-                    p.update_status(current_status)
-                    logger.debug("Status updated: {}".format(p))
-                else:
-                    logger.debug("Status didn't change, old status: '{}'".format(last_status))
             except Exception as err:
-                logger.error('Encountered an error: {0}'.format(err))
+                logger.error('Encountered an error: {}'.format(err))
                 pass
 
         # sleep after each try
