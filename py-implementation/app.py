@@ -1,4 +1,4 @@
-import requests
+import grequests
 import time
 import logging
 import telegram
@@ -34,7 +34,65 @@ positions = [
     GatewayPositionWithState('USDT', 'ETH')
 ]
 
+status_to_emoji = {
+    'inactive': '⛔️',
+    'insufficient_funds': '🚫',
+    'active': '✅'
+}
 
+
+async def watch_position(p):
+    token = p.token
+    network = p.network
+    last_status = p.last_status
+    try:
+        logger.debug("Going to send a request to Waves Exchange")
+
+        request_url = withdraw_status_url_template.format(token=token, network=network)
+        gateway_response_raw = await grequests.get(request_url)
+        match gateway_response_raw.status_code:
+            case 200:
+                gateway_response = gateway_response_raw.json()
+
+                logger.debug("Got a response from Waves Exchange")
+                current_status = gateway_response['status']
+
+                logger.debug("Found 'status' field")
+                if current_status != last_status:
+                    if last_status == initial_status:
+                        logger.debug("First run, just updating the status")
+                        p.update_status(current_status)
+                        return
+
+                    logger.info("Status has changed! Old status: '{}', new status: '{}'"
+                                .format(last_status, current_status))
+
+                    status_emoji = status_to_emoji.get(current_status, '❓')
+
+                    # status has changed, signal to telegram channel
+                    message = """
+                    {} gateway (Waves -> {}) status changed to: {} {}
+                    """.format(token, network, current_status, status_emoji)
+
+                    status = bot.send_message(chat_id=tg_channel_link, text=message)
+
+                    # change last saved status
+                    logger.debug("Updating status for {}".format(p))
+                    p.update_status(current_status)
+                    logger.debug("Status updated: {}".format(p))
+                else:
+                    logger.debug("Status didn't change, old status: '{}'".format(last_status))
+
+            case other_code:
+                logger.error("Gateway responded with {}: {}".format(other_code, gateway_response_raw))
+                # TODO: write me a private message about the problem
+
+    except Exception as err:
+        logger.error('Encountered an error: {}'.format(err))
+        pass
+
+
+# Entry point
 if __name__ == '__main__':
     logging.basicConfig(level=logging.getLevelName(logging_level),
                         format='%(asctime)s %(levelname)s [%(module)s] %(message)s')
@@ -51,53 +109,7 @@ if __name__ == '__main__':
 
     while True:
         for p in positions:
-            token = p.token
-            network = p.network
-            last_status = p.last_status
-            try:
-                logger.debug("Going to send a request to Waves Exchange")
-
-                request_url = withdraw_status_url_template.format(token=token, network=network)
-                gateway_response_raw = requests.get(request_url)
-                match gateway_response_raw.status_code:
-                    case 200:
-                        gateway_response = gateway_response_raw.json()
-
-                        logger.debug("Got a response from Waves Exchange")
-                        current_status = gateway_response['status']
-
-                        logger.debug("Found 'status' field")
-                        if current_status != last_status:
-                            if last_status == initial_status:
-                                logger.debug("First run, just updating the status")
-                                p.update_status(current_status)
-                                continue
-
-                            logger.info("Status has changed! Old status: '{}', new status: '{}'"
-                                        .format(last_status, current_status))
-
-                            # status has changed, signal to telegram channel
-                            message = """
-                            {} gateway (Waves -> {}) status changed to: {}
-                            """.format(token, network, current_status)
-
-                            status = bot.send_message(chat_id=tg_channel_link, text=message)
-
-                            # change last saved status
-                            logger.debug("Updating status for {}".format(p))
-                            p.update_status(current_status)
-                            logger.debug("Status updated: {}".format(p))
-                        else:
-                            logger.debug("Status didn't change, old status: '{}'".format(last_status))
-
-                    case other_code:
-                        logger.error("Gateway responded with {}: {}".format(other_code, gateway_response_raw))
-                        # TODO: write me a private message about the problem
-                        continue
-
-            except Exception as err:
-                logger.error('Encountered an error: {}'.format(err))
-                pass
+            watch_position(p)    
 
         # sleep after each try
         time.sleep(delay_seconds)
