@@ -1,4 +1,8 @@
 #!/bin/sh
+#
+# This script uses experimental Docker features
+# to build several images for different platforms
+# and push them into a specified repository
 
 version=${1}
 repo=${2}
