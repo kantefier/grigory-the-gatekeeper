@@ -7,6 +7,9 @@ import asyncio
 
 tg_channel_link = os.environ.get('TG_CHANNEL_LINK', "@wex_usdt_status")
 withdraw_status_url_template = "https://api.waves.exchange/v1/withdraw/currencies/{token}/{network}"
+message_template = """
+{emoji} Waves -> *{network}* {token} gateway status changed to: {status}
+"""
 
 delay_seconds = int(os.environ.get('BOT_DELAY_SECONDS', 60))
 bot_token = os.environ.get('BOT_TOKEN')
@@ -70,9 +73,8 @@ async def watch_position(session, p):
                         status_emoji = status_to_emoji.get(current_status, '❓')
 
                         # status has changed, signal to telegram channel
-                        message = """
-                        {} gateway (Waves -> {}) status changed to: {} {}
-                        """.format(token, network, current_status, status_emoji)
+                        message = message_template.format(
+                            emoji=status_emoji, network=network, token=token, status=current_status)
 
                         status = bot.send_message(chat_id=tg_channel_link, text=message)
 
