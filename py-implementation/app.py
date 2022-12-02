@@ -8,7 +8,7 @@ import asyncio
 tg_channel_link = os.environ.get('TG_CHANNEL_LINK', "@wex_usdt_status")
 withdraw_status_url_template = "https://api.waves.exchange/v1/withdraw/currencies/{token}/{network}"
 message_template = """
-{emoji} Waves -> *{network}* {token} gateway status changed to: {status}
+{emoji} Waves -> *{network}* {token} gateway status changed to: _{status}_
 """
 
 delay_seconds = int(os.environ.get('BOT_DELAY_SECONDS', 60))
