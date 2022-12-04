@@ -1,6 +1,7 @@
 import aiohttp
 import logging
 import telegram
+from telegram.parsemode import ParseMode
 import os
 import sys
 import asyncio
@@ -8,7 +9,7 @@ import asyncio
 tg_channel_link = os.environ.get('TG_CHANNEL_LINK', "@wex_usdt_status")
 withdraw_status_url_template = "https://api.waves.exchange/v1/withdraw/currencies/{token}/{network}"
 message_template = """
-{emoji} Waves -> *{network}* {token} gateway status changed to: _{status}_
+{emoji} *{network}* {token} gateway status changed to: _{status}_
 """
 
 delay_seconds = int(os.environ.get('BOT_DELAY_SECONDS', 60))
@@ -76,7 +77,7 @@ async def watch_position(session, p):
                         message = message_template.format(
                             emoji=status_emoji, network=network, token=token, status=current_status)
 
-                        status = bot.send_message(chat_id=tg_channel_link, text=message)
+                        status = bot.send_message(chat_id=tg_channel_link, text=message, parse_mode=ParseMode.MARKDOWN)
 
                         # change last saved status
                         logger.debug("Updating status for {}".format(p))
