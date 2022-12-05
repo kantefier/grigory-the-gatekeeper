@@ -75,7 +75,7 @@ async def watch_position(session, p):
 
                         # status has changed, signal to telegram channel
                         message = message_template.format(
-                            emoji=status_emoji, network=network, token=token, status=current_status.replace('_', '\_'))
+                            emoji=status_emoji, network=network, token=token, status=current_status.replace('_', ' '))
 
                         status = bot.send_message(chat_id=tg_channel_link, text=message, parse_mode=ParseMode.MARKDOWN)
 
