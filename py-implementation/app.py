@@ -35,7 +35,8 @@ class GatewayPositionWithState:
 
 positions = [
     GatewayPositionWithState('USDT', 'BSC'),
-    GatewayPositionWithState('USDT', 'ETH')
+    GatewayPositionWithState('USDT', 'ETH'),
+    GatewayPositionWithState('USDT', 'POLYGON')
 ]
 
 status_to_emoji = {
